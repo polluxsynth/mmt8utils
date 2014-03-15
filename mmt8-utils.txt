@@ -1,0 +1,470 @@
+
+MMT8
+====
+
+Overview
+--------
+
+MMT8 is a small DOS utility for manipulation of MMT8 files. It's
+primary objective is to provide functionality which is not easily
+obtained on the MMT8 itself. This includes:
+
+- Quick overview of parts and songs.
+- Naming of parts and songs (no more dreary +/- !)
+- Adding parts or songs to existing songs in an MMT8. This is
+  possible directly on the MMT-8 using the cassette interface, but
+  not directly via MIDI.
+- Extraction of parts and songs to individual files for future
+  manipulation using the MMTDECOD and MMTENCOD utilities.
+
+
+Theory of operation
+-------------------
+
+MMT8 reads and write standard Sysex (.syx) files, which can be
+processed by MIDI sequencers and dump programs, such as Dumpster.
+
+In normal use, a Sysex file from the MMT-8 is read by MMT8, the
+data is manipulated as needed, and the resulting Sysex file
+sent back to the MMT-8.
+
+MMT8 can also handle files containing individual parts or songs.
+These files simply contain the binary representation of a single
+part or song, prefixed with the characters MMP, for a part file,
+or MMS for a song file. These files are intended for further
+processing using the MMTDECOD and MMTENCOD utilities.
+
+MMT8 contains two buffers for MMT-8 data. The first is the Main
+buffer, on which operations take place, and the other is the
+Aux buffer, from which part and song inserts are taken. The two
+buffers can be swapped using a single command, which is how
+the Aux buffer is read and written to and from disk. Each buffer
+contains a complete MMT-8 memory dump.
+
+In order to read a file into the Aux buffer, the S (swap) command must be
+used: First, execute S once to swap the buffers, then issue an R (read)
+command to read the file. Finally, execute S once again to transfer
+the newly-read file to the Aux buffer, and restore the Main buffer.
+
+Note that when creating an MMT-8 Sysex file from scratch, for instance
+by combining parts and songs from other files, it's necessary to
+start with a valid MMT-8 Sysex file in the Main buffer, instead
+of starting with a completely empty buffer. This is because there are
+certain internal pointers and variables within an MMT-8 Sysex file
+which would otherwise be uninitialized, ultimately confusing the MMT-8
+to which the file would be downloaded.
+
+If MMT8 has been compiled with MIDI set to 1, it can receive and
+transmit data directly via a MIDI interface. This has been
+primarily designed for the MIDI interface on my T1000 portable,
+and is not SoundBlaster compatible. Instead, this option requires
+the MIDI interface to be connected to the COM1 serial port,
+with the UART clock running at 1 MHz.
+
+
+
+A note on song 99
+-----------------
+
+The MMT-8 uses song 99 in an undocumented way. This song is never
+deleted; if it is empty, it contains a song with the name NO SONG NAME,
+with no parts in it. Deleting this song will thurouhgly confuse the
+MMT-8, so to keep things simple this song can not be changed by
+the MMT8 utility. The remaining 99 songs should be ample for song use.
+
+
+Invokation
+----------
+
+MMT8 is invoked by
+
+$ mmt8 [filename]
+
+The file name is optional and specifies the input file to be read;
+it can also be specified once the program has started. Once MMT8 is
+running, it has its own prompt, enabling commands to be entered.
+
+
+Internal commands
+-----------------
+
+All MMT8 commands are single-letter abbreviations. Most commands
+are followed with additional parameters. The following commands are
+supported. The are described in more detail further on.
+
+
+H                lists available commands.
+L[P|S]           list used parts/songs.
+U[P|S]           show used parts/songs.
+N[P|S]<no>       set part/song name.
+D[P|S]<no>       delete part/song.
+I[P|S]<no><file> insert part/song from file.
+I[P|S]<no1><no2> insert part/song no1 from aux no2.
+X[P|S]<no><file> extract part/song to file.
+W[<filename>]    write to [new] file.
+R[<filename>]    read [file] or midi.
+M                send to midi.
+S                swap main and aux.
+T                display statistics.
+Q                quit.
+
+
+Note that many commands need to be suffixed by P or S depending on
+whether a part or song is intended.
+
+
+H
+-
+
+This command lists the available commands (help).
+
+
+LP
+LS
+--
+
+L lists parts or songs, and must be suffixed with P or S, respectively,
+hence LP or LS. All parts or songs are listed, together with their
+respective names and lengths (for parts) or tempi (for songs).
+
+
+UP
+US
+--
+
+U is a short form of L, just listing the numbers of the parts or songs
+that have data in them. It is invoked in the same way.
+
+
+NP <part no>
+NS <song no>
+------------
+
+N must be followed by P or S, and lists the name of a part or song;
+it also displays the length (of a part) or tempo (of a song).
+
+Once the name has been displayed, it is possible to change it. Just
+enter the name on the computer keyboard followed by Enter; to keep the
+name as it is, just press Enter on its own.
+
+
+DP <part no>
+DS <song no>
+------------
+
+D deletes a part or song, and must be followed by P or S and the number
+of the part or song. There is no undo function (although the original
+file is of course untouched on disk until the buffer is saved).
+
+
+IP <part no> <filename>
+IS <song no> <filename>
+IP <part no> <aux part no>
+IS <song no> <aux song no>
+--------------------------
+
+I inserts (adds) a part or song in the Main buffer, and can be
+used in two ways.
+
+The first method is used for adding a part or song that has
+previously been extracted to file using the X command. This is
+useful when the part or song data has been edited using the MMTDECOD
+and MMTENCOD utilities. In this case, I is to be followed by P or S, the
+number of the part or song to be written to, and the file name from
+which to fetch the data.
+
+The second method is used for adding a part or song from the Aux buffer.
+In this case, I is followed by P or S, the number of the song or part
+to be written to (in the Main buffer), and finally the song or part to
+be inserted (in the Aux buffer). Note that the contents of the Aux
+buffer is not affected by this operation.
+
+In both cases, the part or song number to be written must be unused,
+if not, first delete it using the D command.
+
+
+XP <part no> <filename>
+XS <song no> <filename>
+-----------------------
+
+X is used for extracting a part or song to a file, which can then be
+processed and edited using the MMTDECOD and MMTENCOD utilities, and
+ultimately re-inserted using the MMT8 I command.
+
+
+W [<filename>]
+--------------
+
+Writes the Main buffer to <filename>. If no file name is specified,
+the name of the file originally read will be used. In any case,
+if the file already exists, the user will be prompted for confirmation.
+
+
+R [<filename>]
+--------------
+
+Read <filename> into the Main buffer. If the buffer has not been saved,
+the user will be prompted for confirmation.
+
+If no filename has been specified, and the program has been compiled
+with MIDI set to 1, the R command will wait for a connected MMT-8 to
+transmit its memory dump (press any key to interrupt the receive
+operation), which will then be loaded into the Main buffer.
+
+
+M
+-
+
+Transmit Main buffer over midi to a connected MMT8. This command is
+only available when the program has been compiled with MIDI set to 1.
+
+
+S
+-
+
+Swap Main and Aux buffers, and print out statistics for both.
+
+
+T
+-
+
+Display statistics for Main and Aux buffers, including number of
+bytes in each, and number of bytes free. An asterisk (*) indicates
+that the buffer in question has not yet been saved to disk.
+
+
+Q
+-
+
+This command exits MMT8. If either buffer is unsaved when attempting
+to quit, the user is asked for confirmation.
+
+
+MMTDECOD
+========
+
+Overview
+--------
+
+The MMTDECOD utility converts a file containing a single part or song,
+extracted from an MMT-8 Sysex file using the MMT8 X command, into
+readable text. The text file produced can either be viewed directly, or
+be written to a file for editing using a text editor. Once the file has
+been edited it can be converted back for insertion into an MMT-8 Sysex
+file using the MMTENCOD utility.
+
+Invokation
+----------
+
+$ mmtdecod <infile> [<outfile>]
+
+<infile> is the input file, extracted from an MMT-8 Sysex file using
+the MMT8 utility X command. The <outfile> is optional; if not specified
+the data will be written to stdout.
+
+Most of the syntax of the resulting output file should be self-
+explanatory; for a detailed description, see the MMTENCOD command.
+
+
+MMTENCOD
+========
+
+Overview
+--------
+
+The MMTENCOD utility converts a text file containing MMT-8 data into
+a part or song file, which can then be inserted into an MMT-8 Sysex
+file using the MMT8 utility I command.
+
+Invokation
+----------
+
+$ mmtencod <infile> [<outfile>]
+
+<infile> is the text file containing the part or song to be compiled.
+Normally an <outfile> is specified; if not, the input file will
+just be checked for syntax and no output will be produced.
+
+Syntax
+------
+
+MMTENCOD follows the same syntax as produced by MMTDECOD. Just editing
+files is usually easy as it is just a question of following the same
+syntax already obvious from the file. However, if a new file is to be
+produced, it might be helpful to know something of the syntax required
+by MMTENCOD.
+
+First of all, MMTENCOD completely ignores empty lines, and lines
+starting with ;, so the semi-colon can be used for comment lines
+within the file. Note that lines containing only spaces are not
+ignored, but will generate a syntax error, so it's wise to prefix
+all unused lines with ; .
+
+A file starts with a part or song specifier, in the following format
+
+PART NAME " NAME OF PART " BEATS number-of-beats   or
+SONG NAME " NAME OF SONG " TEMPO bpm
+
+The name of the part or song must be exactly 14 characters long, and
+surrounded by quotes. The number of beats (for a part) or tempo (for
+a song) must also be specified.
+
+Note that the song or part number is not specified; this is done
+first when the part is inserted into an MMT-8 Sysex file (using the
+MMT8 utility I command).
+
+
+Part specification
+------------------
+
+A part is made up of eight tracks, which in turn are made up of at
+least one event (any number of MIDI events plus one END event).
+All eight tracks must be specified, and they must be specified
+in descending order, starting with track 8 and finishing with track 1.
+
+A track is specified in the following way:
+
+TRACK number CH channel
+[AT beat/clock] [event specification]
+[ ... more events ... ]
+AT  beats-in-part/0 END
+
+The channel sets the MIDI channel for the track, and may be set to 0
+to indicate that the midi channels of the actual events within the
+track are to be used. Specifying an actual channel 1..16 will force all
+events to that channel upon playback.
+
+Any number of events may be specified per track, including none at all,
+but there must always be one END event at the end of each track.
+
+Part events
+-----------
+
+Part events may or may not have a time specifier, indicating when events
+are to be played. An event time is specified in the following way:
+
+AT beat/clock
+
+and must be on the same line as the corresponding event specifier.
+
+Note that AT must be in the first column in the line. Beat/clock indicates
+the time of the event; beats beaing quarter notes, and there being
+96 clocks per quarter note.
+
+If an event specification lacks a time specification, it will occur
+at the same time as the event preceeding it. This is for instance
+how chords are specified.
+
+An event specification may be one of the following
+
+ CH channel NOTE note-number VEL velocity DURA beats/clocks
+ CH channel CTRL controller-number VAL value
+ CH channel PRGM program-number
+ CH channel AFTR aftertouch-value
+ CH channel BEND bend-value
+ SYSX value
+ SYSX value1 value2
+ SYSX value1 value2 value3
+ END
+
+Note that, firstly, if an event time is not specified, the event
+specification must start with at least one space character, and
+secondly, that the END event must always have an event time
+specification. There must be an END event on the last beat of
+each track, even if the track is otherwise empty.
+
+Most of the event specifications should be self explanatory. The DURA
+specification for a NOTE event specifies the length of the note.
+The bend value for a BEND event must be in the range -8192 to 8191.
+
+For system exclusive messages, the SYSX event specifier is used. It
+may specify up to 3 sysex bytes. If several three-byte SYSX events
+are specified after each other without any event time specifiers
+("AT's") (except for the first), they will be transmitted as one
+continguous sysex message, with MMT-8 adding SYSEX and EOX
+bytes upon playback. A one- or two-byte SYSX event will terminate
+the sequence, causing an EOX to be sent. A three-byte SYSX event
+with an event time specifier ("AT") will also terminate the previous
+sysex sequence and start a new one. (For this reason, when
+one- and two-byte SYSX events are decoded by MMTDECOD, they are
+suffixed with EOX. The EOX's are optional for MMTENCOD, however).
+
+A note on event specifications: all event time specifications
+("AT's") must be in ascending order within a track. It is not even
+legal to have two event times specifying the exact same time; in
+this case, the second one should simply be removed, causing that
+event to occur at the same time as the previous one.
+
+
+Song events
+-----------
+
+Song events are rather more simpler than part events; indeed, the
+only event that can be present in a song is a part step, specified
+in the following way:
+
+PART part-number TRACKS 12345678
+
+This should be more or less self-explanatory. The digits after TRACKS
+specify which tracks should play for the song step in question. Any
+track to be muted should have it's corresponding digit replaced with
+"-", so that for instance to specify that only tracks 3,4 and 7 should
+play, the song step specifier would look like this:
+
+PART 34 TRACKS --34--7-
+
+Note that the hyphens must be present.
+
+The end of a song is marked, quite simply, in the following way:
+
+END
+
+
+Examples
+--------
+
+Example of a complete part specification, with four notes played
+on track 2 and a chord on track 1.
+
+PART NAME " EXAMPLE PART " BEATS 4
+TRACK 8 CH 0
+AT 4/0 END
+TRACK 7 CH 0
+AT 4/0 END
+TRACK 6 CH 0
+AT 4/0 END
+TRACK 5 CH 0
+AT 4/0 END
+TRACK 4 CH 0
+AT 4/0 END
+TRACK 3 CH 0
+AT 4/0 END
+TRACK 2 CH 0
+AT 0/0 CH 2 NOTE 60 VEL 64 DURA 1/0
+AT 1/0 CH 2 NOTE 62 VEL 57 DURA 0/93
+AT 2/0 CH 2 NOTE 64 VEL 60 DURA 1/3
+AT 3/0 CH 2 NOTE 65 VEL 67 DURA 1/1
+AT 4/0 END
+TRACK 1 CH 0
+AT 0/0 CH 1 NOTE 60 VEL 64 DURA 4/0
+       CH 1 NOTE 64 VEL 60 DURA 4/0
+       CH 1 NOTE 67 VEL 63 DURA 4/0
+       CH 1 NOTE 72 VEL 60 DURA 4/0
+AT 4/0 END
+
+
+Example of a song, with the same part being played eight times,
+each time with a different track.
+
+SONG NAME " EXAMPLE SONG " TEMPO 124
+PART 3 TRACKS 1-------
+PART 3 TRACKS -2------
+PART 3 TRACKS --3-----
+PART 3 TRACKS ---4----
+PART 3 TRACKS ----5---
+PART 3 TRACKS -----6--
+PART 3 TRACKS ------7-
+PART 3 TRACKS -------8
+
+
+
